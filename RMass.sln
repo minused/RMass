@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30406.217
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RMass", "RMass.csproj", "{AC6CE80A-378D-4563-9223-C17AAE3BCFA4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{DD1D04FC-70E3-4107-A045-87A40F585537}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC6CE80A-378D-4563-9223-C17AAE3BCFA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC6CE80A-378D-4563-9223-C17AAE3BCFA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC6CE80A-378D-4563-9223-C17AAE3BCFA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC6CE80A-378D-4563-9223-C17AAE3BCFA4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {86E51DCD-2A6D-4DE0-81CB-B537A7447379}
+	EndGlobalSection
+EndGlobal
