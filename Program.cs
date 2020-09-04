@@ -226,8 +226,8 @@ namespace RMass
             Password = split[1];
         }
 
-        public String Email    { get; set; }
-        public String Password { get; set; }
+        public String Email    { get; set; } = null!;
+        public String Password { get; set; } = null!;
 
         public Boolean IsValid()
         {
