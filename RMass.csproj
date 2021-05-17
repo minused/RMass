@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -12,6 +12,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="accounts.txt" />
+    <None Remove="Config.json" />
+    <None Remove="messages.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="messages.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="Serilog" Version="2.10.0-dev-01226" />
     <PackageReference Include="Serilog.Sinks.Console" Version="4.0.0-dev-00839" />
@@ -19,13 +34,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Flazzy">
-      <HintPath>..\Tanji\Flazzy.dll</HintPath>
-    </Reference>
-    <Reference Include="Sulakore">
-      <HintPath>..\Tanji\Sulakore.dll</HintPath>
-    </Reference>
 	<FrameworkReference Include="Microsoft.WindowsDesktop.App" /> 
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Sulakore">
+      <HintPath>..\data\Sulakore.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="accounts.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>

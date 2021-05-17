@@ -14,7 +14,7 @@ namespace RMass
         private readonly Config         _config;
         private readonly Logger         _logger;
 
-        public CaptchaService( Queue<Account> accounts, Config config )
+        public CaptchaService(Queue<Account> accounts, Config config)
         {
             _accounts = accounts;
             _config   = config;
@@ -22,7 +22,7 @@ namespace RMass
             _logger = LogCreator.Create("CaptchaService");
         }
 
-        protected override void OnMessage( MessageEventArgs e )
+        protected override void OnMessage(MessageEventArgs e)
         {
             if (e.IsBinary)
             {
@@ -33,12 +33,12 @@ namespace RMass
 
             if (String.IsNullOrWhiteSpace(e.Data)) return;
 
-            _logger.Information("Captcha recebido.");
+            _logger.Information("Captcha received.");
 
             if (_accounts.Count == 0)
             {
-                Serilog.Log.Information("Todas as contas foram utilizadas.");
-                Serilog.Log.Debug("Aperte qualquer tecla para fechar o programa.");
+                Serilog.Log.Information("All accounts were used.");
+                Serilog.Log.Debug("Press any key to exit.");
                 Console.ReadKey(true);
 
                 Environment.Exit(0);

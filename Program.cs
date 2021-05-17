@@ -1,37 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.DirectoryServices;
 using System.IO;
 using System.Linq;
-using System.Security.Principal;
+using System.Net;
 using System.Threading.Tasks;
 
 using Newtonsoft.Json;
 
+using RMass.Models;
+
 using Serilog;
 
-using WebSocketSharp;
 using WebSocketSharp.Server;
-
-using ErrorEventArgs = WebSocketSharp.ErrorEventArgs;
-using Logger = Serilog.Core.Logger;
 
 namespace RMass
 {
     internal class Program
     {
+        private const string PRODUCT_VERSION_API =
+            "https://images.habbo.com/habbo-webgl-clients/205_3887bb9ab2bd85a393c1c2e5162dec1b/WebGL/habbo2020-global-prod/Build/habbo2020-global-prod.json";
+
         private static Queue<Account> _accounts = null!;
 
         private static Config _config = null!;
 
-        private static WebSocket       _socket   = null!;
         private static WebSocketServer _wsServer = null!;
-
-        private static Logger _wsLogger = null!;
 
         private static async Task Main()
         {
             Console.Title = "RMass by ric";
+
+
+            if (!File.Exists("accounts.txt"))
+                await using (var f = File.Create("accounts.txt")) { }
 
             Log.Logger = LogCreator.Create("RMass");
 
@@ -41,116 +42,65 @@ namespace RMass
             }
             catch (Exception e)
             {
-                Log.Error(e, "Arquivo {File} mal formatado.", "Config.json");
-                Log.Debug("Aperte qualquer tecla para fechar o programa.");
+                Log.Error(e, "{File} file was wrong.", "Config.json");
+                Log.Debug("Press any key to exit.");
                 Console.ReadKey(true);
 
                 Environment.Exit(0);
             }
 
-            _socket = new WebSocket("ws://191.233.255.227:1555/rmass") { Log = { Output = ( _, __ ) => { } } };
-            _socket.OnMessage += OnWebSocketMessage;
-            _socket.OnError += OnWebSocketError;
-            _socket.OnOpen += OnWebSocketOpened;
+            var (product, success) = await TryGetModelByUrlTaskAsync<ProductVersionModel>(PRODUCT_VERSION_API);
 
-            _wsLogger = LogCreator.Create("Servidor");
+            if (success) HabboConfig.ProductVersion = product.ProductVersion;
+            else
+            {
+                Log.Error("Error loading habbo data!");
+                Log.Debug("Press any key to exit.");
+                Console.ReadKey(true);
 
-            _wsLogger.Information("Conectando ao servidor de autenticação...");
+                Environment.Exit(0);
+            }
 
-            // ReSharper disable once MethodHasAsyncOverload
-            _socket.Connect();
+
+            await InitializeAsync();
 
             await Task.Delay(-1);
-        }
-
-        private static void OnWebSocketOpened( Object? sender, EventArgs e )
-        {
-            _wsLogger.Information("Conectado ao servidor!");
-            _wsLogger.Debug("Autenticando conexão...");
-
-            _socket.Send($"1|{_config.Token}");
-        }
-
-        private static void OnWebSocketError( Object? sender, ErrorEventArgs e )
-        {
-            _wsLogger.Error(e.Exception, "Houve um erro ao conectar.");
-        }
-
-        private static async void OnWebSocketMessage( Object? sender, MessageEventArgs e )
-        {
-            if (e.IsBinary)
-            {
-                _socket.CloseAsync(CloseStatusCode.Normal);
-
-                return;
-            }
-
-            var split  = e.Data.Split('|');
-            var header = split[0];
-
-            if (header != "1") return;
-
-            if (split[1] == "200")
-            {
-                var isPremium = Boolean.Parse(split[2]);
-
-                if (isPremium)
-                {
-                    var myHwid    = GetUniqueId();
-                    var remaining = split[3];
-
-                    if (split[4] == "null")
-                        _socket.Send($"2|{_config.Token}|{myHwid}");
-                    else
-                    {
-                        if (split[4] != myHwid)
-                        {
-                            Log.Error("Este token foi registrado em outro computador!");
-
-                            return;
-                        }
-                    }
-
-                    Log.Information("Bem-vindo! Você tem {Remaining} dia(s) de assinatura restante(s).",
-                                    Int32.Parse(remaining));
-
-                    // ReSharper disable once MethodHasAsyncOverload
-                    _socket.Close();
-
-                    await InitializeAsync();
-                }
-                else
-                    Log.Error("Sua assinatura terminou!");
-            }
-            else
-                Log.Error("Token inválido.");
         }
 
         private static async Task InitializeAsync()
         {
             _accounts = new Queue<Account>();
 
-            if (_config.RoomId == 0)
-            {
-                Log.Error("A ID de um quarto não pode ser ZERO. Edite o arquivo Config.json com as devidas ID's. Coloque ID 0 para não Respeitar/Acariciar os respectivos sujeitos.");
+            // if (_config.RoomId == 0)
+            // {
+            //     Log.Error("A ID de um quarto não pode ser ZERO. Edite o arquivo Config.json com as devidas ID's. Coloque ID 0 para não Respeitar/Acariciar os respectivos sujeitos.");
+            //
+            //     Log.Debug("Aperte qualquer tecla para fechar o programa.");
+            //     Console.ReadKey(true);
+            //
+            //     Environment.Exit(0);
+            // }
 
-                Log.Debug("Aperte qualquer tecla para fechar o programa.");
+            if (_config.UserId == 0)
+            {
+                Log.Error("User ID must be specified!");
+                Log.Debug("Press any key to exit.");
                 Console.ReadKey(true);
 
                 Environment.Exit(0);
             }
 
 
-            Log.Information("Carregando contas...");
+            Log.Information("Loading accounts...");
 
-            var file = await File.ReadAllLinesAsync("Contas.txt");
+            var file = await File.ReadAllLinesAsync("accounts.txt");
 
             if (file.Length is 0)
             {
-                Log.Error("O arquivo {TextFile} não pode estar vazio. Preencha linha por linha no seguinte formato: {Format}",
-                          "Contas.txt", "email:senha");
+                Log.Error("The file {TextFile} cannot be empty. Set line by line in the format: {Format}",
+                          "accounts.txt", "email:password");
 
-                Log.Debug("Aperte qualquer tecla para fechar o programa.");
+                Log.Debug("Press any key to exit.");
                 Console.ReadKey(true);
 
                 Environment.Exit(0);
@@ -160,16 +110,16 @@ namespace RMass
 
             if (accounts.Count() is 0)
             {
-                Log.Error("Não foi possível obter nenhuma conta. Certifique-se que exista contas no seguinte formato: {Format}",
+                Log.Error("Couldn't get any account. Make sure that there are accounts in the following format: {Format}",
                           "email:senha");
 
-                Log.Debug("Aperte qualquer tecla para fechar o programa.");
+                Log.Debug("Press any key to exit.");
                 Console.ReadKey(true);
 
                 Environment.Exit(0);
             }
 
-            Log.Information("{Count} conta(s) carregada(s).", accounts.Count());
+            Log.Information("Loaded {Count} account(s).", accounts.Count());
 
             foreach (var account in accounts)
             {
@@ -179,44 +129,56 @@ namespace RMass
 
             if (_accounts.Count == 0)
             {
-                Log.Error("Não há nenhuma conta válida. Certifique-se que exista contas no seguinte formato: {Format}",
+                Log.Error("There is no valid account. Make sure that there are accounts in the following format: {Format}",
                           "email:senha");
 
-                Log.Debug("Aperte qualquer tecla para fechar o programa.");
+                Log.Debug("Press any key to exit.");
                 Console.ReadKey(true);
 
                 Environment.Exit(0);
             }
 
-            Log.Debug("{Count} conta(s) válida(s).", _accounts.Count);
+            Log.Debug("{Count} valid account(s).", _accounts.Count);
 
-            if (!Headers.TryLoadHeaders())
-            {
-                Log.Debug("As headers são necessárias! Aperte qualquer tecla para fechar o programa.");
-                Console.ReadKey(true);
-
-                Environment.Exit(0);
-            }
 
             _wsServer            = new WebSocketServer(27);
-            _wsServer.Log.Output = ( _, __ ) => { };
+            _wsServer.Log.Output = (_, __) => { };
             _wsServer.AddWebSocketService("/ric", () => new CaptchaService(_accounts, _config));
             _wsServer.Start();
 
-            Log.Information("Servidor local iniciado, você já pode fazer captchas!");
+            Log.Information("Local server started, you now can make captchas!");
         }
 
-        private static String GetUniqueId()
+        private static async Task<(T model, bool success)> TryGetModelByUrlTaskAsync<T>(string url)
         {
-            return new
-                SecurityIdentifier((Byte[]) new DirectoryEntry($"WinNT://{Environment.MachineName},Computer").Children.Cast<DirectoryEntry>().First().InvokeGet("objectSID"),
-                                   0).AccountDomainSid.Value;
+            try
+            {
+                var client = new WebClient
+                {
+                    Headers =
+                    {
+                        [HttpRequestHeader.UserAgent] =
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36"
+                    }
+                };
+
+
+                var data = await client.DownloadStringTaskAsync(url);
+
+                var model = JsonConvert.DeserializeObject<T>(data);
+
+                return (model, true);
+            }
+            catch
+            {
+                return (default, false);
+            }
         }
     }
 
     internal class Account
     {
-        public Account( String account )
+        public Account(String account)
         {
             var split = account.Split(':');
 
@@ -242,6 +204,5 @@ namespace RMass
         public String? UserName { get; set; }
         public Int32   PetId    { get; set; }
         public Int32   GuildId  { get; set; }
-        public String? Token    { get; set; }
     }
 }

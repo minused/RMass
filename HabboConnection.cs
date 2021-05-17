@@ -1,30 +1,35 @@
 ﻿using System;
-using System.Security.Cryptography;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 
-using com.sulake.habboair;
+using Sulakore.Cryptography;
+using Sulakore.Cryptography.Ciphers;
+using Sulakore.Network;
+using Sulakore.Network.Protocol;
 
 namespace RMass
 {
     internal class HabboConnection : IDisposable
     {
-        private readonly KeyExchange                   _keyExchange;
+        private readonly HKeyExchange                  _keyExchange;
         private readonly Random                        _rand;
         private readonly String                        _sso;
         private          TaskCompletionSource<Boolean> _connected = null!;
 
-        private RC4 _crypto = null!;
+        private string _hexKey = string.Empty;
 
-        private HNode _server = null!;
+        private HNode                      _server = null!;
+        private TaskCompletionSource<bool> _starGemCompletionSource;
 
-        public HabboConnection( String sso )
+        private int duckets;
+
+        public HabboConnection(String sso)
         {
             _sso = sso;
 
             _keyExchange =
-                new KeyExchange(65537,
-                                "bd214e4f036d35b75fee36000f24ebbef15d56614756d7afbd4d186ef5445f758b284647feb773927418ef70b95387b80b961ea56d8441d410440e3d3295539a3e86e7707609a274c02614cc2c7df7d7720068f072e098744afe68485c6297893f3d2ba3d7aaaaf7fa8ebf5d7af0ba2d42e0d565b89d332de4cf898d666096ce61698de0fab03a8a5e12430cb427c97194cbd221843d162c9f3acf74da1d80ebc37fde442b68a0814dfea3989fdf8129c120a8418248d7ee85d0b79fa818422e496d6fa7b5bd5db77e588f8400cda1a8d82efed6c86b434bafa6d07dfcc459d35d773f8dfaf523dfed8fca45908d0f9ed0d4bceac3743af39f11310eaf3dff45");
+                new HKeyExchange(65537,
+                                 "bd214e4f036d35b75fee36000f24ebbef15d56614756d7afbd4d186ef5445f758b284647feb773927418ef70b95387b80b961ea56d8441d410440e3d3295539a3e86e7707609a274c02614cc2c7df7d7720068f072e098744afe68485c6297893f3d2ba3d7aaaaf7fa8ebf5d7af0ba2d42e0d565b89d332de4cf898d666096ce61698de0fab03a8a5e12430cb427c97194cbd221843d162c9f3acf74da1d80ebc37fde442b68a0814dfea3989fdf8129c120a8418248d7ee85d0b79fa818422e496d6fa7b5bd5db77e588f8400cda1a8d82efed6c86b434bafa6d07dfcc459d35d773f8dfaf523dfed8fca45908d0f9ed0d4bceac3743af39f11310eaf3dff45");
 
             _rand = new Random();
         }
@@ -47,13 +52,20 @@ namespace RMass
 
             try
             {
-                _server = new HNode();
+                _hexKey = GetRandomHexNumber();
 
-                await _server.ConnectAsync("game-br.habbo.com", 30000);
-                await _server.SendPacketAsync(Headers.ReleaseVersion, Headers.Variables.Production, "FLASH", 1, 0);
-                await _server.SendPacketAsync(Headers.InitCrypto);
+                _server               = await HNode.ConnectAsync("game-fr.habbo.com", 30001);
+                _server.ReceiveFormat = HFormat.EvaWire;
+                _server.SendFormat    = HFormat.EvaWire;
+                _server.IsWebSocket   = true;
 
-                HandlePacket(await _server.ReceivePacketAsync());
+                await _server.UpgradeWebSocketAsClientAsync();
+
+                await _server.SendAsync(Header.GetOutgoingHeader("Hello"), _hexKey, "UNITY1", 0, 0);
+
+                await _server.SendAsync(Header.GetOutgoingHeader("InitDhHandshake"));
+
+                HandlePacket(await _server.ReceiveAsync());
             }
             catch
             {
@@ -63,18 +75,29 @@ namespace RMass
             return await _connected.Task;
         }
 
-        private async void HandlePacket( HMessage hmessage )
+        private async void HandlePacket(HPacket hmessage)
         {
             try
             {
-                if (hmessage.Header == Headers.Ping)
+                if (hmessage.Id == Header.GetIncomingHeader("Ping"))
                     await SendPong();
-                else if (hmessage.Header == Headers.InGenerateSecretKey)
-                    await GenerateSecretKey(hmessage.ReadString());
-                else if (hmessage.Header == Headers.VerifyPrimes)
-                    await VerifyPrimes(hmessage.ReadString(), hmessage.ReadString());
 
-                HandlePacket(await _server.ReceivePacketAsync());
+                else if (hmessage.Id == Header.GetIncomingHeader("DhCompleteHandshake"))
+                    await CryptConnectionAsync(hmessage.ReadUTF8());
+
+                else if (hmessage.Id == Header.GetIncomingHeader("DhInitHandshake"))
+                    await VerifyPrimesAsync(hmessage.ReadUTF8(), hmessage.ReadUTF8());
+
+                else if (hmessage.Id == Header.GetIncomingHeader("Ok"))
+                    _connected.TrySetResult(true);
+
+                else if (hmessage.Id == Header.GetIncomingHeader("ActivityPointNotification"))
+                {
+                    duckets = hmessage.ReadInt32();
+                    if (_starGemCompletionSource != null) _starGemCompletionSource.TrySetResult(true);
+                }
+
+                HandlePacket(await _server.ReceiveAsync());
             }
             catch (Exception)
             {
@@ -82,100 +105,118 @@ namespace RMass
             }
         }
 
-        public async Task VerifyPrimes( String prime, String generator )
+        public async Task VerifyPrimesAsync(String prime, String generator)
         {
             _keyExchange.VerifyDHPrimes(prime, generator);
             _keyExchange.Padding = PKCSPadding.RandomByte;
-            await SendToServer(HMessage.Construct(Headers.OutGenerateSecretKey, _keyExchange.GetPublicKey()));
+
+            await _server.SendAsync(Header.GetOutgoingHeader("CompleteDhHandshake"), _keyExchange.GetPublicKey());
         }
 
         private async Task SendPong()
         {
-            await SendToServerCrypto(HMessage.Construct(Headers.Pong));
-        }
-
-        private async Task SendToServer( Byte[] parse )
-        {
-            try
-            {
-                await _server.SendAsync(parse);
-            }
-            catch
-            {
-                Disconnect();
-            }
+            await _server.SendAsync(Header.GetOutgoingHeader("Pong"));
         }
 
         public void Disconnect()
         {
-            _server.Disconnect();
             _connected.TrySetResult(false);
         }
 
-        public async Task GenerateSecretKey( String publicKey )
+        public async Task CryptConnectionAsync(String publicKey)
         {
-            _crypto = new RC4(_keyExchange.GetSharedKey(publicKey));
+            var nonce = GetNonce(_hexKey);
 
-            await SendToServer(_crypto.Parse(HMessage.Construct(Headers.ClientVariables, 401,
-                                                                Headers.Variables.ClientVariables1,
-                                                                Headers.Variables.ClientVariables2)));
+            var chacha    = new byte[32];
+            var sharedKey = _keyExchange.GetSharedKey(publicKey);
 
-            await SendToServer(_crypto.Parse(HMessage.Construct(Headers.MachineID, "", "~" + GenMid(),
-                                                                "WIN/32,0,0,403")));
+            Buffer.BlockCopy(sharedKey, 0, chacha, 0, sharedKey.Length);
 
-            await SendToServer(_crypto.Parse(HMessage.Construct(Headers.SSOTicket, _sso, _rand.Next(3000, 5000))));
-            await SendToServer(_crypto.Parse(HMessage.Construct(Headers.RequestUserData)));
+            _server.Decrypter = new ChaCha20(chacha, nonce);
+            _server.Encrypter = new ChaCha20(chacha, nonce);
 
-            _connected.TrySetResult(true);
+            await SendStuffAsync();
         }
 
-        private async Task SendToServerCrypto( Byte[] data )
+        private async Task SendStuffAsync()
         {
-            _crypto.RefParse(data);
+            await _server.SendAsync(Header.GetOutgoingHeader("GetIdentityAgreementTypes"));
 
-            await SendToServer(data);
+            await _server.SendAsync(Header.GetOutgoingHeader("VersionCheck"), 0, HabboConfig.ProductVersion, "");
+
+
+            await _server.SendAsync(Header.GetOutgoingHeader("UniqueMachineId"), GetRandomHexNumber(76).ToLower(),
+                                    "n/a", "Chrome 90", "n/a");
+
+
+            await _server.SendAsync(Header.GetOutgoingHeader("LoginWithTicket"), _sso, 0);
         }
 
-        private static String GenMid( Int32 length = 32 )
+        public async Task<int> SendStarGemAsync(int userId)
         {
-            using var rngProvider = new RNGCryptoServiceProvider();
+            _starGemCompletionSource = new TaskCompletionSource<bool>();
 
-            var bytes = new Byte[length];
-            rngProvider.GetBytes(bytes);
+            await StarGem(userId, 1);
 
-            using var md5 = MD5.Create();
+            await _starGemCompletionSource.Task;
 
-            var md5Hash = md5.ComputeHash(bytes);
+            if (duckets < 1) return 1;
 
-            var sb = new StringBuilder();
-            foreach (var data in md5Hash) sb.Append(data.ToString("x2"));
+            await Task.Delay(400);
 
-            return sb.ToString();
+            await StarGem(userId, duckets);
+
+            return duckets + 1;
         }
 
-        public async Task Scratch( Int32 petId )
+        private async Task StarGem(int userId, int quantity)
         {
-            await SendToServerCrypto(HMessage.Construct(Headers.ScratchPet, petId));
+            await _server.SendAsync(1505, 0, userId, quantity);
         }
 
-        public async Task Respect( Int32 id )
+        public async Task Scratch(Int32 petId)
         {
-            await SendToServerCrypto(HMessage.Construct(Headers.RoomUserGiveRespect, id));
+            await _server.SendAsync(Header.GetOutgoingHeader(""));
         }
 
-        public async Task LoadRoom( Int32 room )
+        public async Task Respect(Int32 id)
         {
-            await SendToServerCrypto(HMessage.Construct(Headers.RequestRoomLoad, room, String.Empty, -1));
+            await _server.SendAsync(Header.GetOutgoingHeader(""));
         }
 
-        public async Task AddFriend( String username )
+        public async Task LoadRoom(Int32 room)
         {
-            await SendToServerCrypto(HMessage.Construct(Headers.FriendRequest, username));
+            await _server.SendAsync(Header.GetOutgoingHeader("FlatOpc"), 0, room, "", -1, -1);
         }
 
-        public async Task JoinGuild( Int32 guildId )
+        public async Task AddFriend(String username)
         {
-            await SendToServerCrypto(HMessage.Construct(Headers.RequestGuildJoin, guildId));
+            await _server.SendAsync(Header.GetOutgoingHeader("RequestFriend"), username);
+        }
+
+        public async Task JoinGuild(Int32 guildId)
+        {
+            await _server.SendAsync(Header.GetOutgoingHeader(""));
+        }
+
+        private string GetRandomHexNumber(int digits = 24)
+        {
+            var buffer = new byte[digits / 2];
+            _rand.NextBytes(buffer);
+            var result = string.Concat(buffer.Select(x => x.ToString("X2")).ToArray());
+
+            if (digits % 2 == 0)
+                return result;
+
+            return result + _rand.Next(16).ToString("X");
+        }
+
+        private byte[] GetNonce(string str)
+        {
+            var nonce                         = string.Empty;
+            for (var i = 0; i < 8; i++) nonce += str.Substring(i * 3, 2);
+
+            return Convert.FromHexString(nonce);
         }
     }
 }
