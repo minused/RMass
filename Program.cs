@@ -4,13 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-
 using Newtonsoft.Json;
-
 using RMass.Models;
-
 using Serilog;
-
 using WebSocketSharp.Server;
 
 namespace RMass
@@ -18,7 +14,7 @@ namespace RMass
     internal class Program
     {
         private const string PRODUCT_VERSION_API =
-            "https://images.habbo.com/habbo-webgl-clients/205_3887bb9ab2bd85a393c1c2e5162dec1b/WebGL/habbo2020-global-prod/Build/habbo2020-global-prod.json";
+            "https://images.habbo.com/habbo-webgl-clients/290_dc53eac13406c485b5c3131623eadd72/WebGL/habbo2020-global-prod/Build/habbo2020-global-prod.json";
 
         private static Queue<Account> _accounts = null!;
 
