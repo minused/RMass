@@ -22,6 +22,7 @@ namespace RMass
 
         private static WebSocketServer _wsServer = null!;
 
+        //test
         private static async Task Main()
         {
             Console.Title = "RMass by ric";
