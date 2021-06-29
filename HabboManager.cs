@@ -1,7 +1,5 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
-
 using Serilog.Core;
 
 namespace RMass
@@ -9,10 +7,10 @@ namespace RMass
     internal class HabboManager
     {
         private readonly Config _config;
-        private readonly Int16  _currentId;
+        private readonly short _currentId;
         private readonly Logger _logger;
 
-        public HabboManager(Int16 id, Config config)
+        public HabboManager(short id, Config config)
         {
             _config    = config;
             _currentId = id;
@@ -20,7 +18,7 @@ namespace RMass
             _logger = LogCreator.Create("HabboManager");
         }
 
-        public async void HandleAccount([NotNull] String token, [NotNull] Account currentAccount)
+        public async void HandleAccount([NotNull] string token, [NotNull] Account currentAccount)
         {
             var habbo = new Habbo(token, _currentId);
 
@@ -29,10 +27,10 @@ namespace RMass
             if (!await habbo.TryLoginAsync(currentAccount.Email, currentAccount.Password)) return;
             if (!await habbo.TryLoadAvatarsAsync()) return;
 
-            for (Int16 i = 0; i < habbo.Count; i++)
+            for (short i = 0; i < habbo.Count; i++)
             {
                 _logger.Information("[Acc #{Id}] Trying select avatar ({Index1}/{Index2})...", habbo.Id, i + 1,
-                                    habbo.Count);
+                    habbo.Count);
 
                 if (!await habbo.TrySelectAvatarAsync(habbo[i])) continue;
 
@@ -44,7 +42,9 @@ namespace RMass
 
 
                 if (!await bot.TryConnectAsync())
+                {
                     _logger.Error("[Acc #{Id} - {AvatarName}] Disconnected.", habbo.Id, habbo[i].Name);
+                }
                 else
                 {
                     // await Task.Delay(400);
@@ -58,7 +58,7 @@ namespace RMass
                     var duckets = await bot.SendStarGemAsync(_config.UserId);
 
                     _logger.Information("[Acc #{Id} - {AvatarName}] Sent {duckets} stars!", habbo.Id, habbo[i].Name,
-                                        duckets);
+                        duckets);
 
 
                     // _logger.Information("[Conta #{Id} - {AvatarName}] Entrando no quarto...", habbo.Id, habbo[i].Name);

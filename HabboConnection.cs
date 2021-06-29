@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
-
 using Sulakore.Cryptography;
 using Sulakore.Cryptography.Ciphers;
 using Sulakore.Network;
@@ -13,8 +12,8 @@ namespace RMass
     {
         private readonly HKeyExchange                  _keyExchange;
         private readonly Random                        _rand;
-        private readonly String                        _sso;
-        private          TaskCompletionSource<Boolean> _connected = null!;
+        private readonly string _sso;
+        private TaskCompletionSource<bool> _connected = null!;
 
         private string _hexKey = string.Empty;
 
@@ -23,7 +22,7 @@ namespace RMass
 
         private int duckets;
 
-        public HabboConnection(String sso)
+        public HabboConnection(string sso)
         {
             _sso = sso;
 
@@ -40,14 +39,14 @@ namespace RMass
             _server?.Dispose();
         }
 
-        public Boolean IsConnected()
+        public bool IsConnected()
         {
             return _server.IsConnected;
         }
 
-        public async Task<Boolean> TryConnectAsync()
+        public async Task<bool> TryConnectAsync()
         {
-            _connected = new TaskCompletionSource<Boolean>();
+            _connected = new TaskCompletionSource<bool>();
             Start:
 
             try
@@ -105,7 +104,7 @@ namespace RMass
             }
         }
 
-        public async Task VerifyPrimesAsync(String prime, String generator)
+        public async Task VerifyPrimesAsync(string prime, string generator)
         {
             _keyExchange.VerifyDHPrimes(prime, generator);
             _keyExchange.Padding = PKCSPadding.RandomByte;
@@ -123,7 +122,7 @@ namespace RMass
             _connected.TrySetResult(false);
         }
 
-        public async Task CryptConnectionAsync(String publicKey)
+        public async Task CryptConnectionAsync(string publicKey)
         {
             var nonce = GetNonce(_hexKey);
 
@@ -174,27 +173,27 @@ namespace RMass
             await _server.SendAsync(1505, 0, userId, quantity);
         }
 
-        public async Task Scratch(Int32 petId)
+        public async Task Scratch(int petId)
         {
             await _server.SendAsync(Header.GetOutgoingHeader(""));
         }
 
-        public async Task Respect(Int32 id)
+        public async Task Respect(int id)
         {
             await _server.SendAsync(Header.GetOutgoingHeader(""));
         }
 
-        public async Task LoadRoom(Int32 room)
+        public async Task LoadRoom(int room)
         {
             await _server.SendAsync(Header.GetOutgoingHeader("FlatOpc"), 0, room, "", -1, -1);
         }
 
-        public async Task AddFriend(String username)
+        public async Task AddFriend(string username)
         {
             await _server.SendAsync(Header.GetOutgoingHeader("RequestFriend"), username);
         }
 
-        public async Task JoinGuild(Int32 guildId)
+        public async Task JoinGuild(int guildId)
         {
             await _server.SendAsync(Header.GetOutgoingHeader(""));
         }

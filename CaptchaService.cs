@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-
 using WebSocketSharp;
 using WebSocketSharp.Server;
-
 using Logger = Serilog.Core.Logger;
 
 namespace RMass
@@ -31,7 +29,7 @@ namespace RMass
                 return;
             }
 
-            if (String.IsNullOrWhiteSpace(e.Data)) return;
+            if (string.IsNullOrWhiteSpace(e.Data)) return;
 
             _logger.Information("Captcha received.");
 

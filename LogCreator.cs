@@ -1,13 +1,11 @@
-﻿using System;
-
-using Serilog;
+﻿using Serilog;
 using Serilog.Core;
 
 namespace RMass
 {
     internal static class LogCreator
     {
-        public static Logger Create( String name )
+        public static Logger Create(string name)
         {
             return new LoggerConfiguration().WriteTo
                                             .Console(outputTemplate:

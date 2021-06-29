@@ -1,9 +1,7 @@
-﻿using System;
-
-namespace RMass
+﻿namespace RMass
 {
     internal static class Helper
     {
-        public static Int16 CurrentId;
+        public static short CurrentId;
     }
 }

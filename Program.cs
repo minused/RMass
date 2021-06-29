@@ -174,7 +174,7 @@ namespace RMass
 
     internal class Account
     {
-        public Account(String account)
+        public Account(string account)
         {
             var split = account.Split(':');
 
@@ -184,21 +184,21 @@ namespace RMass
             Password = split[1];
         }
 
-        public String Email    { get; set; } = null!;
-        public String Password { get; set; } = null!;
+        public string Email { get; set; } = null!;
+        public string Password { get; set; } = null!;
 
-        public Boolean IsValid()
+        public bool IsValid()
         {
-            return !String.IsNullOrWhiteSpace(Email) && !String.IsNullOrWhiteSpace(Password);
+            return !string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(Password);
         }
     }
 
     internal class Config
     {
-        public Int32   RoomId   { get; set; }
-        public Int32   UserId   { get; set; }
-        public String? UserName { get; set; }
-        public Int32   PetId    { get; set; }
-        public Int32   GuildId  { get; set; }
+        public int RoomId { get; set; }
+        public int UserId { get; set; }
+        public string? UserName { get; set; }
+        public int PetId { get; set; }
+        public int GuildId { get; set; }
     }
 }

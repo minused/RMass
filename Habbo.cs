@@ -6,32 +6,30 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-
 using Newtonsoft.Json;
-
 using Serilog.Core;
 
 namespace RMass
 {
     internal class Habbo : IDisposable
     {
-        private readonly String _captchaToken;
+        private readonly string _captchaToken;
 
         private readonly Logger _logger;
 
-        public readonly Int16 Id;
+        public readonly short Id;
 
         private Avatar[] _avatars = null!;
 
         private HttpClient _client = null!;
 
-        private IEnumerable<String> _cookies = null!;
+        private IEnumerable<string> _cookies = null!;
 
         private Avatar _currentAvatar = null!;
 
-        public String CurrentSso = null!;
+        public string CurrentSso = null!;
 
-        public Habbo([NotNull] String captchaToken, Int16 id)
+        public Habbo([NotNull] string captchaToken, short id)
         {
             _captchaToken = captchaToken;
             Id            = id;
@@ -39,16 +37,16 @@ namespace RMass
             _logger = LogCreator.Create("Habbo");
         }
 
-        public Int32 Count => _avatars?.Length ?? 0;
+        public int Count => _avatars?.Length ?? 0;
 
-        public Avatar this[Int16 index] => _avatars[index];
+        public Avatar this[short index] => _avatars[index];
 
         public void Dispose()
         {
             _client?.Dispose();
         }
 
-        public async Task<Boolean> TryLoginAsync([NotNull] String email, [NotNull] String pass)
+        public async Task<bool> TryLoginAsync([NotNull] string email, [NotNull] string pass)
         {
             try
             {
@@ -122,7 +120,7 @@ namespace RMass
             }
         }
 
-        public async Task<Boolean> TryLoadAvatarsAsync()
+        public async Task<bool> TryLoadAvatarsAsync()
         {
             try
             {
@@ -176,7 +174,7 @@ namespace RMass
             }
         }
 
-        public async Task<Boolean> TrySelectAvatarAsync([NotNull] Avatar avatar)
+        public async Task<bool> TrySelectAvatarAsync([NotNull] Avatar avatar)
         {
             if (!_avatars.Contains(avatar)) throw new Exception("Avatar does not exist in the current account.");
 
@@ -233,7 +231,7 @@ namespace RMass
             }
         }
 
-        public async Task<Boolean> TryGetSsoTokenAsync()
+        public async Task<bool> TryGetSsoTokenAsync()
         {
             try
             {
@@ -294,23 +292,17 @@ namespace RMass
 
     internal class Avatar
     {
-        [JsonProperty("uniqueId")]
-        public String UniqueId { get; set; }
+        [JsonProperty("uniqueId")] public string UniqueId { get; set; }
 
-        [JsonProperty("name")]
-        public String Name { get; set; }
+        [JsonProperty("name")] public string Name { get; set; }
 
-        [JsonProperty("figureString")]
-        public String FigureString { get; set; }
+        [JsonProperty("figureString")] public string FigureString { get; set; }
 
-        [JsonProperty("motto")]
-        public String Motto { get; set; }
+        [JsonProperty("motto")] public string Motto { get; set; }
 
-        [JsonProperty("buildersClubMember")]
-        public Boolean BuildersClubMember { get; set; }
+        [JsonProperty("buildersClubMember")] public bool BuildersClubMember { get; set; }
 
-        [JsonProperty("habboClubMember")]
-        public Boolean HabboClubMember { get; set; }
+        [JsonProperty("habboClubMember")] public bool HabboClubMember { get; set; }
 
         [JsonProperty("lastWebAccess")]
         public DateTime LastWebAccess { get; set; }
@@ -318,10 +310,9 @@ namespace RMass
         [JsonProperty("creationTime")]
         public DateTime CreationTime { get; set; }
 
-        [JsonProperty("banned")]
-        public Boolean Banned { get; set; }
+        [JsonProperty("banned")] public bool Banned { get; set; }
 
-        public override String ToString()
+        public override string ToString()
         {
             return $"{{\"uniqueId\":\"{UniqueId}\"}}";
         }
